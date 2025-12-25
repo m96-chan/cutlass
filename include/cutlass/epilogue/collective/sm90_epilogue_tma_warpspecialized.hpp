@@ -241,7 +241,8 @@ public:
   };
 
   // Device side epilogue params
-  struct Params {
+  // PyGPUkit: Issue #2905 fix - TMA descriptors require 64-byte alignment for prefetch.tensormap
+  struct alignas(64) Params {
     using TMA_C = decltype(make_tma_copy(
         CopyOpG2S{},
         make_tensor(make_gmem_ptr<TmaElementC const>(nullptr),
@@ -258,8 +259,9 @@ public:
         _1{}));
 
     typename FusionCallbacks::Params thread{};
-    TMA_C tma_load_c;
-    TMA_D tma_store_d;
+    // PyGPUkit: Issue #2905 fix - each TMA descriptor needs 64-byte alignment
+    alignas(64) TMA_C tma_load_c;
+    alignas(64) TMA_D tma_store_d;
     uint32_t tma_transaction_bytes = TmaTransactionBytes;
   };
 

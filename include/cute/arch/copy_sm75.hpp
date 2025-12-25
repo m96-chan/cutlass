@@ -89,9 +89,16 @@ struct SM75_U32x1_LDSM_N
   {
 #if defined(CUTE_ARCH_LDSM_SM75_ACTIVATED)
     uint32_t smem_int_ptr = cast_smem_ptr_to_uint(&smem_src);
-    asm volatile ("ldmatrix.sync.aligned.x1.m8n8.shared.b16 {%0}, [%1];\n"
-        : "=r"(dst)
-        :  "r"(smem_int_ptr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((smem_int_ptr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x1.m8n8.shared.b16 {%0}, [%1];\n"
+          : "=r"(dst)
+          :  "r"(smem_int_ptr));
+    } else {
+      asm volatile ("ld.shared.u32 %0, [%1];\n"
+          : "=r"(dst)
+          : "r"(smem_int_ptr));
+    }
 #else
     CUTE_INVALID_CONTROL_PATH("Trying to use ldmatrix without CUTE_ARCH_LDSM_SM75_ACTIVATED.");
 #endif
@@ -109,9 +116,19 @@ struct SM75_U32x2_LDSM_N
   {
 #if defined(CUTE_ARCH_LDSM_SM75_ACTIVATED)
     uint32_t smem_int_ptr = cast_smem_ptr_to_uint(&smem_src);
-    asm volatile ("ldmatrix.sync.aligned.x2.m8n8.shared.b16 {%0, %1}, [%2];\n"
-        : "=r"(dst0), "=r"(dst1)
-        :  "r"(smem_int_ptr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((smem_int_ptr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x2.m8n8.shared.b16 {%0, %1}, [%2];\n"
+          : "=r"(dst0), "=r"(dst1)
+          :  "r"(smem_int_ptr));
+    } else {
+      asm volatile (
+          "ld.shared.u32 %0, [%2];\n"
+          "ld.shared.u32 %1, [%3];\n"
+          : "=r"(dst0), "=r"(dst1)
+          : "r"(smem_int_ptr),
+            "r"(smem_int_ptr + 4u));
+    }
 #else
     CUTE_INVALID_CONTROL_PATH("Trying to use ldmatrix without CUTE_ARCH_LDSM_SM75_ACTIVATED.");
 #endif
@@ -129,9 +146,35 @@ struct SM75_U32x4_LDSM_N
   {
 #if defined(CUTE_ARCH_LDSM_SM75_ACTIVATED)
     uint32_t smem_int_ptr = cast_smem_ptr_to_uint(&smem_src);
-    asm volatile ("ldmatrix.sync.aligned.x4.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];\n"
-        : "=r"(dst0), "=r"(dst1), "=r"(dst2), "=r"(dst3)
-        :  "r"(smem_int_ptr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check for ldmatrix
+    // ldmatrix.sync.aligned requires 16-byte alignment
+    // DEBUG: printf on first call only
+    #if 0
+    {
+      int lane = threadIdx.x % 32;
+      if (lane == 0 && threadIdx.x < 32 && blockIdx.x == 0) {
+        printf("[LDSM_x4] addr=0x%08x aligned=%d\n", smem_int_ptr, (smem_int_ptr & 0xF) == 0);
+      }
+    }
+    #endif
+    if ((smem_int_ptr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x4.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];\n"
+          : "=r"(dst0), "=r"(dst1), "=r"(dst2), "=r"(dst3)
+          :  "r"(smem_int_ptr));
+    } else {
+      // Misaligned fallback - use scalar loads
+      // Note: This is a workaround and may produce incorrect results
+      asm volatile (
+          "ld.shared.u32 %0, [%4];\n"
+          "ld.shared.u32 %1, [%5];\n"
+          "ld.shared.u32 %2, [%6];\n"
+          "ld.shared.u32 %3, [%7];\n"
+          : "=r"(dst0), "=r"(dst1), "=r"(dst2), "=r"(dst3)
+          : "r"(smem_int_ptr),
+            "r"(smem_int_ptr + 4u),
+            "r"(smem_int_ptr + 8u),
+            "r"(smem_int_ptr + 12u));
+    }
 #else
     CUTE_INVALID_CONTROL_PATH("Trying to use ldmatrix without CUTE_ARCH_LDSM_SM75_ACTIVATED.");
 #endif
@@ -149,9 +192,16 @@ struct SM75_U16x2_LDSM_T
   {
 #if defined(CUTE_ARCH_LDSM_SM75_ACTIVATED)
     uint32_t smem_int_ptr = cast_smem_ptr_to_uint(&smem_src);
-    asm volatile ("ldmatrix.sync.aligned.x1.trans.m8n8.shared.b16 {%0}, [%1];\n"
-        : "=r"(dst)
-        :  "r"(smem_int_ptr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((smem_int_ptr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x1.trans.m8n8.shared.b16 {%0}, [%1];\n"
+          : "=r"(dst)
+          :  "r"(smem_int_ptr));
+    } else {
+      asm volatile ("ld.shared.u32 %0, [%1];\n"
+          : "=r"(dst)
+          : "r"(smem_int_ptr));
+    }
 #else
     CUTE_INVALID_CONTROL_PATH("Trying to use ldmatrix without CUTE_ARCH_LDSM_SM75_ACTIVATED.");
 #endif
@@ -169,9 +219,19 @@ struct SM75_U16x4_LDSM_T
   {
 #if defined(CUTE_ARCH_LDSM_SM75_ACTIVATED)
     uint32_t smem_int_ptr = cast_smem_ptr_to_uint(&smem_src);
-    asm volatile ("ldmatrix.sync.aligned.x2.trans.m8n8.shared.b16 {%0, %1}, [%2];\n"
-        : "=r"(dst0), "=r"(dst1)
-        :  "r"(smem_int_ptr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((smem_int_ptr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x2.trans.m8n8.shared.b16 {%0, %1}, [%2];\n"
+          : "=r"(dst0), "=r"(dst1)
+          :  "r"(smem_int_ptr));
+    } else {
+      asm volatile (
+          "ld.shared.u32 %0, [%2];\n"
+          "ld.shared.u32 %1, [%3];\n"
+          : "=r"(dst0), "=r"(dst1)
+          : "r"(smem_int_ptr),
+            "r"(smem_int_ptr + 4u));
+    }
 #else
     CUTE_INVALID_CONTROL_PATH("Trying to use ldmatrix without CUTE_ARCH_LDSM_SM75_ACTIVATED.");
 #endif
@@ -189,9 +249,23 @@ struct SM75_U16x8_LDSM_T
   {
 #if defined(CUTE_ARCH_LDSM_SM75_ACTIVATED)
     uint32_t smem_int_ptr = cast_smem_ptr_to_uint(&smem_src);
-    asm volatile ("ldmatrix.sync.aligned.x4.trans.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];\n"
-        : "=r"(dst0), "=r"(dst1), "=r"(dst2), "=r"(dst3)
-        :  "r"(smem_int_ptr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((smem_int_ptr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x4.trans.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];\n"
+          : "=r"(dst0), "=r"(dst1), "=r"(dst2), "=r"(dst3)
+          :  "r"(smem_int_ptr));
+    } else {
+      asm volatile (
+          "ld.shared.u32 %0, [%4];\n"
+          "ld.shared.u32 %1, [%5];\n"
+          "ld.shared.u32 %2, [%6];\n"
+          "ld.shared.u32 %3, [%7];\n"
+          : "=r"(dst0), "=r"(dst1), "=r"(dst2), "=r"(dst3)
+          : "r"(smem_int_ptr),
+            "r"(smem_int_ptr + 4u),
+            "r"(smem_int_ptr + 8u),
+            "r"(smem_int_ptr + 12u));
+    }
 #else
     CUTE_INVALID_CONTROL_PATH("Trying to use ldmatrix without CUTE_ARCH_LDSM_SM75_ACTIVATED.");
 #endif

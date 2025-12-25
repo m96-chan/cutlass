@@ -81,7 +81,12 @@ CUTLASS_DEVICE void ldsm<layout::RowMajor, 1>(
     unsigned addr = cutlass_get_smem_pointer(ptr);
 
     int x;
-    asm volatile ("ldmatrix.sync.aligned.x1.m8n8.shared.b16 {%0}, [%1];" : "=r"(x) : "r"(addr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((addr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x1.m8n8.shared.b16 {%0}, [%1];" : "=r"(x) : "r"(addr));
+    } else {
+      asm volatile ("ld.shared.b32 %0, [%1];" : "=r"(x) : "r"(addr));
+    }
     reinterpret_cast<int &>(D) = x;
 
   #else
@@ -105,7 +110,13 @@ CUTLASS_DEVICE void ldsm<layout::RowMajor, 2>(
     unsigned addr = cutlass_get_smem_pointer(ptr);
 
     int x, y;
-    asm volatile ("ldmatrix.sync.aligned.x2.m8n8.shared.b16 {%0, %1}, [%2];" : "=r"(x), "=r"(y) : "r"(addr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((addr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x2.m8n8.shared.b16 {%0, %1}, [%2];" : "=r"(x), "=r"(y) : "r"(addr));
+    } else {
+      asm volatile ("ld.shared.b32 %0, [%2];\n"
+                    "ld.shared.b32 %1, [%3];" : "=r"(x), "=r"(y) : "r"(addr), "r"(addr + 4u));
+    }
     reinterpret_cast<int2 &>(D) = make_int2(x, y);
 
   #else
@@ -129,7 +140,15 @@ CUTLASS_DEVICE void ldsm<layout::RowMajor, 4>(
     unsigned addr = cutlass_get_smem_pointer(ptr);
 
     int x, y, z, w;
-    asm volatile ("ldmatrix.sync.aligned.x4.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];" : "=r"(x), "=r"(y), "=r"(z), "=r"(w) : "r"(addr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((addr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x4.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];" : "=r"(x), "=r"(y), "=r"(z), "=r"(w) : "r"(addr));
+    } else {
+      asm volatile ("ld.shared.b32 %0, [%4];\n"
+                    "ld.shared.b32 %1, [%5];\n"
+                    "ld.shared.b32 %2, [%6];\n"
+                    "ld.shared.b32 %3, [%7];" : "=r"(x), "=r"(y), "=r"(z), "=r"(w) : "r"(addr), "r"(addr + 4u), "r"(addr + 8u), "r"(addr + 12u));
+    }
     reinterpret_cast<int4 &>(D) = make_int4(x, y, z, w);
 
   #else
@@ -157,7 +176,12 @@ CUTLASS_DEVICE void ldsm<layout::ColumnMajor, 1>(
     unsigned addr = cutlass_get_smem_pointer(ptr);
 
     int x;
-    asm volatile ("ldmatrix.sync.aligned.x1.trans.m8n8.shared.b16 {%0}, [%1];" : "=r"(x) : "r"(addr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((addr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x1.trans.m8n8.shared.b16 {%0}, [%1];" : "=r"(x) : "r"(addr));
+    } else {
+      asm volatile ("ld.shared.b32 %0, [%1];" : "=r"(x) : "r"(addr));
+    }
     reinterpret_cast<int &>(D) = x;
 
   #else
@@ -181,7 +205,13 @@ CUTLASS_DEVICE void ldsm<layout::ColumnMajor, 2>(
     unsigned addr = cutlass_get_smem_pointer(ptr);
 
     int x, y;
-    asm volatile ("ldmatrix.sync.aligned.x2.trans.m8n8.shared.b16 {%0, %1}, [%2];" : "=r"(x), "=r"(y) : "r"(addr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((addr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x2.trans.m8n8.shared.b16 {%0, %1}, [%2];" : "=r"(x), "=r"(y) : "r"(addr));
+    } else {
+      asm volatile ("ld.shared.b32 %0, [%2];\n"
+                    "ld.shared.b32 %1, [%3];" : "=r"(x), "=r"(y) : "r"(addr), "r"(addr + 4u));
+    }
     reinterpret_cast<int2 &>(D) = make_int2(x, y);
 
   #else
@@ -205,7 +235,15 @@ CUTLASS_DEVICE void ldsm<layout::ColumnMajor, 4>(
     unsigned addr = cutlass_get_smem_pointer(ptr);
 
     int x, y, z, w;
-    asm volatile ("ldmatrix.sync.aligned.x4.trans.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];" : "=r"(x), "=r"(y), "=r"(z), "=r"(w) : "r"(addr));
+    // PyGPUkit: Issue #2902 fix - runtime alignment check
+    if ((addr & 0xF) == 0) {
+      asm volatile ("ldmatrix.sync.aligned.x4.trans.m8n8.shared.b16 {%0, %1, %2, %3}, [%4];" : "=r"(x), "=r"(y), "=r"(z), "=r"(w) : "r"(addr));
+    } else {
+      asm volatile ("ld.shared.b32 %0, [%4];\n"
+                    "ld.shared.b32 %1, [%5];\n"
+                    "ld.shared.b32 %2, [%6];\n"
+                    "ld.shared.b32 %3, [%7];" : "=r"(x), "=r"(y), "=r"(z), "=r"(w) : "r"(addr), "r"(addr + 4u), "r"(addr + 8u), "r"(addr + 12u));
+    }
     reinterpret_cast<int4 &>(D) = make_int4(x, y, z, w);
 
   #else

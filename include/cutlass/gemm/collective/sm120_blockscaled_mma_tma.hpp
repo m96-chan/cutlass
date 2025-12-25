@@ -256,8 +256,10 @@ struct CollectiveMma<
     struct TensorStorage : cute::aligned_struct<128, _0> {
       alignas(1024) cute::ArrayEngine<SmemAllocTypeA, cute::cosize_v<SmemLayoutA>> smem_A;
       alignas(1024) cute::ArrayEngine<SmemAllocTypeB, cute::cosize_v<SmemLayoutB>> smem_B;
-      cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
-      cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
+      // PyGPUkit: Issue #2902 fix - add explicit alignment for scale factor storage
+      // partition_S drops alignment from 1024 to 8 bytes, breaking ldmatrix (requires 16-byte)
+      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
+      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
     } tensors;
     using PipelineStorage = typename MainloopPipeline::SharedStorage;
     alignas(16) PipelineStorage pipeline_storage;
@@ -279,7 +281,8 @@ struct CollectiveMma<
   };
 
   // Device side kernel params
-  struct Params {
+  // PyGPUkit: Issue #2905 fix - TMA descriptors require 64-byte alignment for prefetch.tensormap
+  struct alignas(64) Params {
     // Assumption: StrideA is congruent with Problem_MK
     using TMA_A = decltype(make_tma_copy(
         GmemTiledCopyA{},
@@ -310,10 +313,11 @@ struct CollectiveMma<
         make_shape(shape<1>(TileShape{}), shape<2>(TileShape{})),
         _1{}));  // No programmatic multicast
 
-    TMA_A tma_load_a;
-    TMA_B tma_load_b;
-    TMA_SFA tma_load_sfa;
-    TMA_SFB tma_load_sfb;
+    // PyGPUkit: Issue #2905 fix - each TMA descriptor needs 64-byte alignment
+    alignas(64) TMA_A tma_load_a;
+    alignas(64) TMA_B tma_load_b;
+    alignas(64) TMA_SFA tma_load_sfa;
+    alignas(64) TMA_SFB tma_load_sfb;
     LayoutSFA layout_SFA;
     LayoutSFB layout_SFB;
     uint32_t tma_transaction_bytes = TmaTransactionBytes;

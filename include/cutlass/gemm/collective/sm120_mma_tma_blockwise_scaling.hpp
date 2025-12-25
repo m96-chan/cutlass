@@ -228,8 +228,9 @@ struct CollectiveMma<
     struct TensorStorage : cute::aligned_struct<128, _0> {
       alignas(1024) cute::array_aligned<SmemAllocTypeA, cute::cosize_v<SmemLayoutA>> smem_A;
       alignas(1024) cute::array_aligned<SmemAllocTypeB, cute::cosize_v<SmemLayoutB>> smem_B;
-      cute::array_aligned<ElementSF, cute::cosize_v<SmemLayoutScaleA>> smem_scale_A;
-      cute::array_aligned<ElementSF, cute::cosize_v<SmemLayoutScaleB>> smem_scale_B;
+      // PyGPUkit: Issue #2902 fix - add explicit alignment for scale factor storage
+      alignas(128) cute::array_aligned<ElementSF, cute::cosize_v<SmemLayoutScaleA>> smem_scale_A;
+      alignas(128) cute::array_aligned<ElementSF, cute::cosize_v<SmemLayoutScaleB>> smem_scale_B;
     } tensors;
 
     using PipelineStorage = typename MainloopPipeline::SharedStorage;
@@ -251,7 +252,8 @@ struct CollectiveMma<
   };
 
   // Device side kernel params
-  struct Params {
+  // PyGPUkit: Issue #2905 fix - TMA descriptors require 64-byte alignment for prefetch.tensormap
+  struct alignas(64) Params {
     // Assumption: StrideA is congruent with Problem_MK
     using TMA_A = decltype(make_tma_copy(
         GmemTiledCopyA{},
@@ -266,8 +268,9 @@ struct CollectiveMma<
         SmemLayoutB{}(_,_,0),
         make_shape(shape<1>(TileShape{}), shape<2>(TileShape{})),
         size<0>(ClusterShape{}))); // mcast along M mode for this N load, if any
-    TMA_A tma_load_a;
-    TMA_B tma_load_b;
+    // PyGPUkit: Issue #2905 fix - each TMA descriptor needs 64-byte alignment
+    alignas(64) TMA_A tma_load_a;
+    alignas(64) TMA_B tma_load_b;
     uint32_t tma_transaction_bytes = TmaTransactionBytes;
     uint32_t tma_transaction_bytes_mk = TmaTransactionBytesMK;
     uint32_t tma_transaction_bytes_nk = TmaTransactionBytesNK;

@@ -272,10 +272,11 @@ struct CollectiveMma<
 
   struct SharedStorage {
     struct TensorStorage : cute::aligned_struct<128, _0> {
-      cute::ArrayEngine<SmemAllocTypeA, cute::cosize_v<SmemLayoutA>> smem_A;
-      cute::ArrayEngine<SmemAllocTypeB, cute::cosize_v<LoadSmemLayoutB>> smem_B;
-      cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
-      cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
+      // PyGPUkit: Issue #2902 fix - add explicit alignment for all shared memory storage
+      alignas(1024) cute::ArrayEngine<SmemAllocTypeA, cute::cosize_v<SmemLayoutA>> smem_A;
+      alignas(1024) cute::ArrayEngine<SmemAllocTypeB, cute::cosize_v<LoadSmemLayoutB>> smem_B;
+      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
+      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
     } tensors;
 
     using PipelineStorageTMA = typename MainloopPipelineTMA::SharedStorage;
