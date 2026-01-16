@@ -258,8 +258,9 @@ struct CollectiveMma<
       alignas(1024) cute::ArrayEngine<SmemAllocTypeB, cute::cosize_v<SmemLayoutB>> smem_B;
       // PyGPUkit: Issue #2902 fix - add explicit alignment for scale factor storage
       // partition_S drops alignment from 1024 to 8 bytes, breaking ldmatrix (requires 16-byte)
-      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
-      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
+      // Note: cute::array_aligned default is 16-byte, matching ldmatrix.sync.aligned requirement
+      alignas(16) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
+      alignas(16) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
     } tensors;
     using PipelineStorage = typename MainloopPipeline::SharedStorage;
     alignas(16) PipelineStorage pipeline_storage;

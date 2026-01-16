@@ -297,8 +297,9 @@ struct CollectiveMma<
       alignas(1024) cute::ArrayEngine<SmemAllocTypeA, cute::cosize_v<SmemLayoutA>> smem_A;
       alignas(1024) cute::ArrayEngine<SmemAllocTypeB, cute::cosize_v<SmemLayoutB>> smem_B;
       // PyGPUkit: Issue #2902 fix - add explicit alignment for scale factor storage
-      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
-      alignas(128) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
+      // partition_S drops alignment from 1024 to 8 bytes, breaking ldmatrix (requires 16-byte)
+      alignas(16) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFA>> smem_SFA;
+      alignas(16) cute::ArrayEngine<ElementSF, cute::cosize_v<SmemLayoutSFB>> smem_SFB;
       cute::ArrayEngine<ElementEMma, Int<SmemSizeE>{}> smem_E;
     } tensors;
 
